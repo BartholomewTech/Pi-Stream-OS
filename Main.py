@@ -4,6 +4,24 @@ from kivy.core.window import Window
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.properties import StringProperty
 from kivy.utils import get_color_from_hex
+from kivy.config import Config # Import Config early
+from kivy.lang import Builder # *** NEW: Import Builder for explicit KV loading ***
+
+# --- Kivy Configuration for Fullscreen HDMI Output (SDL2 Fallback) ---
+
+# Reverting to the most stable window provider for minimal OS running without X server
+# We use 'sdl2' as the window provider, which worked in the previous successful launch attempts.
+Config.set('graphics', 'window', 'sdl2')
+Config.set('graphics', 'fullscreen', 'auto')
+Config.set('graphics', 'show_mouse', '1') 
+
+# Requesting 1080p resolution for sharpness (optional, Kivy will scale to monitor size)
+Config.set('graphics', 'width', '1920')
+Config.set('graphics', 'height', '1080')
+
+# Removed egl_rpi which was causing the graphics failure.
+
+# ------------------------------------------------------------------------
 
 # We are forcing Kivy to use the GLES backend which is optimized for the Raspberry Pi GPU.
 # This should be done before importing any other Kivy modules.
@@ -42,13 +60,13 @@ class PiStreamOSApp(App):
     current_category = StringProperty("Movies")
 
     def build(self):
-        # Configure Window for Raspberry Pi TV display
-        # We start in a maximized state for VNC, but will be fullscreen for the final OS image
-        Window.maximize()
-        # Window.fullscreen = 'auto' # Uncomment this for final Kiosk mode
+        # *** CRITICAL FIX: Explicitly load ui.kv as the file name doesn't match the app name. ***
+        Builder.load_file('app/ui.kv') 
+        
+        # Ensure the window has a defined background color
+        Window.clearcolor = self.background_color
 
-        # Load the KV file (Kivy will look for 'pistreamos.kv' or 'ui.kv' based on app name)
-        # Since we use self.root_manager, we load the ui.kv explicitly
+        # The MediaManager instance is created and its content is defined by ui.kv
         return MediaManager()
 
     def set_category(self, category_name):
@@ -57,11 +75,8 @@ class PiStreamOSApp(App):
         # NOTE: We will add logic here later to switch the content grid based on category.
 
 if __name__ == '__main__':
-    # Set Kivy configuration to use GLES2 for Raspberry Pi
-    from kivy.config import Config
-    Config.set('graphics', 'fullscreen', '0') # Start in windowed mode for VNC testing
-    Config.set('graphics', 'width', '1280')
-    Config.set('graphics', 'height', '720')
-    Config.set('input', 'mouse', 'mouse,multitouch_on_demand') # Better touch/mouse input
     
-    PiStreamOSApp().run()
+    try:
+        PiStreamOSApp().run()
+    except Exception as e:
+        print(f"Kivy App failed to run: {e}") # Simple print for user visibility
